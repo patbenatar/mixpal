@@ -162,5 +162,5 @@ prefer local development, inspect the Dockerfile to get your local env built.
 docker-compose build \
   --build-arg USER_ID=$(id -u) \
   --build-arg GROUP_ID=$(id -g)
-docker-compose run rake release
+docker-compose run gem rake release
 ```
