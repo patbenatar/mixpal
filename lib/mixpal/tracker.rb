@@ -1,6 +1,6 @@
 module Mixpal
   class Tracker
-    attr_reader :events, :user_updates, :revenue_updates, :identity, :alias_user
+    attr_reader :events, :user_updates, :revenue_updates, :identity, :alias_user, :js_snippets
 
     STORAGE_KEY = 'mixpal'
 
@@ -10,6 +10,7 @@ module Mixpal
       @events = []
       @user_updates = []
       @revenue_updates = []
+      @js_snippets = []
 
       @identity = args[:identity]
     end
@@ -31,6 +32,10 @@ module Mixpal
       revenue_updates << Mixpal::Revenue.new(amount, properties)
     end
 
+    def add_js_snippet(snippet)
+      js_snippets << Mixpal::Snippet.new(snippet)
+    end
+
     def render
       ''.tap do |html|
         html << '<script type="text/javascript">'
@@ -39,6 +44,7 @@ module Mixpal
         html << events.map(&:render).join('')
         html << user_updates.map(&:render).join('')
         html << revenue_updates.map(&:render).join('')
+        html << js_snippets.map(&:render).join('')
         html << '</script>'
       end.html_safe
     end
@@ -58,13 +64,15 @@ module Mixpal
       end
 
       if data['user_updates']
-        @user_updates =
-          data['user_updates'].map { |u| Mixpal::User.from_store(u) }
+        @user_updates = data['user_updates'].map { |u| Mixpal::User.from_store(u) }
       end
 
       if data['revenue_updates']
-        @revenue_updates =
-          data['revenue_updates'].map { |u| Mixpal::Revenue.from_store(u) }
+        @revenue_updates = data['revenue_updates'].map { |u| Mixpal::Revenue.from_store(u) }
+      end
+
+      if data['js_snippets']
+        @js_snippets = data['js_snippets'].map { |u| Mixpal::Snippet.from_store(u) }
       end
 
       session.delete(STORAGE_KEY)
@@ -78,7 +86,8 @@ module Mixpal
         'identity' => identity,
         'events' => events.map(&:to_store),
         'user_updates' => user_updates.map(&:to_store),
-        'revenue_updates' => revenue_updates.map(&:to_store)
+        'revenue_updates' => revenue_updates.map(&:to_store),
+        'js_snippets' => js_snippets.map(&:to_store)
       }
     end
   end

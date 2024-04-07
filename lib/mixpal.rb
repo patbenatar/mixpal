@@ -9,6 +9,7 @@ module Mixpal
   autoload :User, 'mixpal/user'
   autoload :Revenue, 'mixpal/revenue'
   autoload :Integration, 'mixpal/integration'
+  autoload :Snippet, 'mixpal/snippet'
 
   class << self
     def configuration
