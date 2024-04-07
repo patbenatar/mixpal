@@ -30,6 +30,10 @@ describe Mixpal::Tracker do
       expect(subject.revenue_updates).to eq []
     end
 
+    it 'creates an empty set of arbitrary javascript snippets' do
+      expect(subject.js_snippets).to eq []
+    end
+
     context 'with an :identity arg' do
       subject { subject_with_identity }
 
@@ -99,6 +103,22 @@ describe Mixpal::Tracker do
       end.to change(subject.revenue_updates, :size).by(1)
 
       expect(subject.revenue_updates.first).to be_an_instance_of(Mixpal::Revenue)
+    end
+  end
+
+  describe '#add_js_snippet' do
+    it 'instantiates a new Snippet object with properties' do
+      snippet = "alert('hello world');"
+
+      expect(Mixpal::Snippet).to receive(:new).with(snippet)
+      subject.add_js_snippet(snippet)
+    end
+
+    it 'adds the Snippet to js_snippets for rendering later' do
+      expect { subject.add_js_snippet("alert('hello world');") }
+        .to change(subject.js_snippets, :size).by(1)
+
+      expect(subject.js_snippets.first).to be_an_instance_of(Mixpal::Snippet)
     end
   end
 
@@ -190,6 +210,23 @@ describe Mixpal::Tracker do
         expect(subject.render).to include joined
       end
     end
+
+    context 'with js snippets' do
+      before do
+        subject.add_js_snippet('alert("hello world");')
+        subject.add_js_snippet('arbitraryFunctionCall();')
+      end
+
+      it 'delegates render to the events' do
+        subject.js_snippets.each { |snippet| expect(snippet).to receive :render }
+        subject.render
+      end
+
+      it 'joins each rendered snippet' do
+        joined = subject.js_snippets[0].render + subject.js_snippets[1].render
+        expect(subject.render).to include joined
+      end
+    end
   end
 
   describe '#store!' do
@@ -251,6 +288,25 @@ describe Mixpal::Tracker do
         )
       end
     end
+
+    context 'when js_snippets have been added' do
+      before do
+        subject.add_js_snippet('alert("hello world");')
+        subject.add_js_snippet('arbitraryFunctionCall();')
+      end
+
+      it 'delegates composition to the snippets' do
+        subject.js_snippets.each { |snippet| expect(snippet).to receive :to_store }
+        subject.store!(session)
+      end
+
+      it 'stores the snippets in an array' do
+        subject.store!(session)
+        expect_storage_to_include(
+          'js_snippets' => [subject.js_snippets[0].to_store, subject.js_snippets[1].to_store]
+        )
+      end
+    end
   end
 
   describe '#restore!' do
@@ -260,6 +316,7 @@ describe Mixpal::Tracker do
     before do
       old_tracker.track 'Event 1'
       old_tracker.register_user name: 'Nick Giancola'
+      old_tracker.add_js_snippet("alert('hello world');")
       old_tracker.store!(session)
     end
 
@@ -280,9 +337,16 @@ describe Mixpal::Tracker do
       subject.restore!(session)
     end
 
-    it 'restores the events' do
+    it 'restores the snippets' do
       subject.restore!(session)
-      expect(subject.events.size).to eq 1
+      expect(subject.js_snippets.size).to eq 1
+    end
+
+    it 'delegates snippet restoration to the Snippet class' do
+      expect(Mixpal::Snippet).to receive(:from_store)
+        .with(old_tracker.js_snippets.first.to_store)
+
+      subject.restore!(session)
     end
 
     context 'with a different identity (e.g. after login)' do
